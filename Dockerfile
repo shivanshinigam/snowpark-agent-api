@@ -1,16 +1,11 @@
-FROM python:3.10-slim
+FROM public.ecr.aws/snowflake/snowpark-python:latest
 
-# Set working directory
 WORKDIR /app
 
-# Copy application code
 COPY app /app
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir fastapi uvicorn pandas
 
-# Expose API port
 EXPOSE 8080
 
-# Start FastAPI server
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
