@@ -1,11 +1,8 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, Header, HTTPException
 from snowflake.snowpark import Session
+import os
 
-app = FastAPI(title="Snowpark Agent Public API")
-
-class QuestionRequest(BaseModel):
-    question: str
+app = FastAPI(title="Snowflake Backend API")
 
 def get_session():
     return Session.builder.getOrCreate()
@@ -14,28 +11,27 @@ def get_session():
 def health():
     return {"status": "ok"}
 
-@app.post("/ask")
-def ask(req: QuestionRequest):
-    if not req.question.strip():
-        raise HTTPException(status_code=400, detail="Question is required")
+@app.get("/ask")
+def ask(
+    q: str,
+    x_api_key: str = Header(None)
+):
+    if x_api_key != os.getenv("API_KEY"):
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     session = get_session()
 
-    sql = f"""
+    df = session.sql(f"""
         SELECT *
         FROM TABLE(
-            CORTEX_AGENT(
-                'SHIVANSHI_AGENT',
-                '{req.question}'
+            CORTEX_ANALYST(
+                'SHIVANSHI_SEMANTIC_VIEW',
+                '{q}'
             )
         )
-    """
+    """)
 
-    try:
-        df = session.sql(sql)
-        return {
-            "question": req.question,
-            "answer": df.to_pandas().to_dict(orient="records")
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "question": q,
+        "result": df.to_pandas().to_dict(orient="records")
+    }
